@@ -17,12 +17,28 @@ public class TunerService extends Service {
     private static final String TAG = "qblast_svc";
     private static final String CHANNEL_ID = "qblast_tuner";
     private static final int NOTIFICATION_ID = 1;
+    private static final String DSP_LIBRARY_PATH = "/data/local/tmp";
+
+    static {
+        // libqblast_tuner_jni.so is built by AGP/CMake and packaged into the APK
+        // under lib/arm64-v8a/. Loading it pulls in libcdsprpc.so (dynamic dep)
+        // and our qaic-generated qblast_hello_stub.c.
+        System.loadLibrary("qblast_tuner_jni");
+    }
+
+    public static native void nativeInit(String dspLibraryPath);
+    public static native long nativePing();
 
     @Override
     public void onCreate() {
         super.onCreate();
         ensureChannel();
         startForeground(NOTIFICATION_ID, buildNotification("Idle"));
+
+        // Set DSP_LIBRARY_PATH so fastrpc finds /data/local/tmp/libqblast_hello_skel.so
+        // (and future libgemv_v*.so variants).
+        nativeInit(DSP_LIBRARY_PATH);
+
         Log.i(TAG, "TunerService.onCreate");
     }
 
@@ -31,11 +47,19 @@ public class TunerService extends Service {
         if (intent != null && ACTION_TUNE.equals(intent.getAction())) {
             int cfgId = intent.getIntExtra(EXTRA_CFG_ID, -1);
             String shape = intent.getStringExtra(EXTRA_SHAPE);
-            Log.i(TAG, "TUNE cfg_id=" + cfgId + " shape=" + shape);
 
-            // Phase-1 stub: log only. Week 2 will dispatch JNI runner here:
-            //   long elapsed = TunerJni.runVariant(cfgId, shape, ...);
-            //   ResultLogger.write(cfgId, shape, elapsed, validationError);
+            long t0 = System.nanoTime();
+            long magic;
+            try {
+                magic = nativePing();
+            } catch (Throwable t) {
+                Log.e(TAG, "nativePing threw", t);
+                magic = -2;
+            }
+            long rttUs = (System.nanoTime() - t0) / 1000;
+
+            Log.i(TAG, "TUNE cfg_id=" + cfgId + " shape=" + shape
+                    + " ping_magic=" + magic + " java_rtt_us=" + rttUs);
         } else {
             Log.w(TAG, "onStartCommand: unexpected intent " + intent);
         }

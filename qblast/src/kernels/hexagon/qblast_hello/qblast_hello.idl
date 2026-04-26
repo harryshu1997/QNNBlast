@@ -1,0 +1,14 @@
+// FastRPC interface for the qblast hello-world DSP skel.
+// Phase-1 Week-2 Day-1: validates IDL -> stub/skel codegen, FastRPC roundtrip,
+// and unsigned-PD on retail OnePlus 15 (Hexagon v81). Replaced by
+// gemv_w4a16.idl (real kernel) once this lights up.
+
+#include "AEEStdDef.idl"
+#include "remote.idl"
+
+interface qblast_hello : remote_handle64 {
+    // Returns a fixed magic number (4950 = sum of 0..99) plus the DSP
+    // pcycle counter at entry/exit so the host can compare ARM wall-clock
+    // RTT against on-DSP compute time.
+    long ping(rout long long magic, rout unsigned long long dsp_cycles);
+};

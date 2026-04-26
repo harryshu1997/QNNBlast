@@ -2,6 +2,24 @@ plugins {
     id 'com.android.application'
 }
 
+// Read machine-local paths (Hexagon SDK root) from android/local.properties so
+// they don't get committed. CMakeLists.txt requires HEXAGON_SDK_ROOT to be set.
+def localProps = new Properties()
+def localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.exists()) {
+    localPropsFile.withInputStream { localProps.load(it) }
+}
+def hexagonSdkRoot = localProps.getProperty("hexagon.sdk.root", "")
+if (hexagonSdkRoot.isEmpty()) {
+    throw new GradleException(
+        "hexagon.sdk.root must be set in qblast/android/local.properties " +
+        "(e.g. hexagon.sdk.root=/local/mnt/workspace/Qualcomm/Hexagon_SDK/6.5.0.1).")
+}
+
+// QBLAST_KERNELS_DIR points at qblast/src/kernels/hexagon — used by CMake to
+// reach the IDL files that live next to the DSP impl.
+def qblastKernelsDir = file("${rootProject.projectDir}/../src/kernels/hexagon").canonicalPath
+
 android {
     compileSdkVersion 33
     buildToolsVersion "33.0.2"
@@ -16,7 +34,10 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags "-std=c++17"
-                arguments "-DANDROID_STL=c++_shared"
+                arguments \
+                    "-DANDROID_STL=c++_shared",
+                    "-DHEXAGON_SDK_ROOT=${hexagonSdkRoot}",
+                    "-DQBLAST_KERNELS_DIR=${qblastKernelsDir}"
             }
         }
         ndk {

@@ -10,12 +10,13 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+// MainActivity holds no native state — TunerService owns the JNI library and
+// FastRPC lifecycle. This activity exists only to give a tap-to-trigger UI for
+// manual smoke tests; the real tuner control surface is the
+// `com.qblast.TUNE` broadcast receiver.
+
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "qblast";
-
-    static {
-        System.loadLibrary("qblast_tuner_jni");
-    }
 
     private TextView statusView;
 
@@ -23,10 +24,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        // DSP skel libraries (libgemv_v*.so) are pushed to /data/local/tmp/ by the host
-        // tuner_driver. fastrpc loader looks them up via DSP_LIBRARY_PATH.
-        init("/data/local/tmp");
 
         statusView = findViewById(R.id.statusView);
         statusView.setText(getString(R.string.status_default));
@@ -48,8 +45,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        Log.i(TAG, "MainActivity.onCreate complete");
+        Log.i(TAG, "MainActivity.onCreate");
     }
-
-    public native void init(String location);
 }

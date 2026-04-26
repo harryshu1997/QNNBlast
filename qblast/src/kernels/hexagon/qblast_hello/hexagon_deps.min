@@ -1,0 +1,14 @@
+# Library dependencies for the qblast_hello DSP skel.
+# Mostly mirrors SDK calculator_c++_apk template; only override is SUPPORTED_VS,
+# which is restricted to v81 Release+Debug for Phase 1 (we only ship to OnePlus 15).
+
+include $(HEXAGON_SDK_ROOT)/build/default_deps.min
+
+# Phase 1: skip the 50+ default variants and build only what we ship.
+# Add other v81 toolchain rev variants here if a newer toolchain is needed.
+SUPPORTED_VS = \
+    hexagon_Release_toolv19_v81 \
+    hexagon_Debug_toolv19_v81
+
+DEPENDENCIES += \
+    ATOMIC

@@ -1,0 +1,3 @@
+# Hexagon SDK build outputs (variant dirs + ship)
+hexagon_*_toolv*/
+ship/

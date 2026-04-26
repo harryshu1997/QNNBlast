@@ -1,0 +1,16 @@
+# Hexagon-side build description for the qblast_hello skel.
+# Plain hello-world: no HVX, no HMX, no VTCM, no QuRT threading.
+
+NO_QURT_INC = 1
+
+BUILD_DLLS += libqblast_hello_skel
+
+# IDL filename (without .idl suffix) — qaic generates qblast_hello_skel.c here.
+libqblast_hello_skel_QAICIDLS += qblast_hello
+libqblast_hello_skel_C_SRCS += $(OBJ_DIR)/qblast_hello_skel
+libqblast_hello_skel.C_SRCS += qblast_hello_imp.c
+
+# Copy final .so to ship/ (host scripts/build_dsp.sh adb-pushes from there).
+BUILD_COPIES += \
+   $(DLLS) \
+   $(SHIP_DIR)/ ;
