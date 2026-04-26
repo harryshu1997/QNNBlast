@@ -296,14 +296,21 @@ Java_com_qblast_tuner_TunerService_nativeRunGemv(
         float val = 0.001f + 0.004f * (float)(rng.next() & 0xFFu) / 255.0f;
         A_scales[i] = qblast_fp32_to_fp16(val);
     }
+    // x_quant uses a deinterleaved layout to match the DSP HVX kernel:
+    //   x_quant[0 .. K/2-1]   = x[0], x[2], x[4], ..., x[K-2]   (even k)
+    //   x_quant[K/2 .. K-1]   = x[1], x[3], x[5], ..., x[K-1]   (odd k)
+    // The validator still uses x_fp32_ref[] in natural order, since rel_err
+    // should reflect what the DSP computed vs full-precision reference.
     const float x_scale = 1.0f / 127.0f;
+    const size_t half_K = K / 2;
     for (size_t i = 0; i < K; ++i) {
         float val = (float)((int32_t)(rng.next() & 0xFFFFu) - 32768) / 32768.0f;
         x_fp32_ref[i] = val;
         int q = (int)lroundf(val * 127.0f);
         if (q > 127) q = 127;
         if (q < -128) q = -128;
-        x_quant[i] = (uint8_t)(int8_t)q;  // octet wire format, signed reinterpret on DSP
+        const size_t dest = (i & 1u) ? (half_K + (i >> 1)) : (i >> 1);
+        x_quant[dest] = (uint8_t)(int8_t)q;
     }
     memset(y_buf, 0, y_bytes);
 
