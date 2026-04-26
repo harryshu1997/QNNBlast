@@ -1,0 +1,26 @@
+// W4A16 GEMV FastRPC interface.
+//
+// Computes y[M] = A[M,K] * x[K] where:
+//   A is W4-quantized (4-bit unsigned, packed two-per-byte, low nibble first)
+//   A has FP16 scale per quant block of size q_block along K
+//   x and y are FP16 (passed as int16 wire format)
+//
+// Phase-1 Day 2 baseline: scalar implementation. HVX vmpy/vrmpy + VTCM staging
+// land in Day 4+; when they do, this IDL stays the same — only the DSP impl
+// gets replaced under the hood.
+
+#include "AEEStdDef.idl"
+#include "remote.idl"
+
+interface gemv_w4a16 : remote_handle64 {
+    long compute(
+        in unsigned long M,
+        in unsigned long K,
+        in unsigned long q_block,
+        in sequence<octet> A_packed,            // M*K/2 bytes, row-major
+        in sequence<short> A_scales,            // M*(K/q_block) FP16 scales
+        in sequence<short> x,                   // K FP16 activations
+        rout sequence<short> y,                 // M FP16 outputs
+        rout unsigned long long dsp_cycles
+    );
+};

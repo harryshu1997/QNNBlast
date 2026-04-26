@@ -1,0 +1,9 @@
+include $(HEXAGON_SDK_ROOT)/build/default_deps.min
+
+# Phase-1 only ships v81 to OnePlus 15.
+SUPPORTED_VS = \
+    hexagon_Release_toolv19_v81 \
+    hexagon_Debug_toolv19_v81
+
+DEPENDENCIES += \
+    ATOMIC

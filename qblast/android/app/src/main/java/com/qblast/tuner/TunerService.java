@@ -28,6 +28,8 @@ public class TunerService extends Service {
 
     public static native void nativeInit(String dspLibraryPath);
     public static native long nativePing();
+    /** Returns 0 on success+validation pass, < 0 on error or accuracy fail. Metrics go to logcat. */
+    public static native int nativeRunGemv(int m, int k, int qBlock, int seed);
 
     @Override
     public void onCreate() {
