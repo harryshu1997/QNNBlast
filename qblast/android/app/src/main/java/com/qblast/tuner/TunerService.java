@@ -28,8 +28,15 @@ public class TunerService extends Service {
 
     public static native void nativeInit(String dspLibraryPath);
     public static native long nativePing();
-    /** Returns 0 on success+validation pass, < 0 on error or accuracy fail. Metrics go to logcat. */
-    public static native int nativeRunGemv(int m, int k, int qBlock, int seed);
+    /**
+     * Runs the gemv_w4a16 kernel with `warmup` discarded reps + `iters` timed reps,
+     * validates the post-warmup output against an FP32 reference, and writes
+     * `<resultsDir>/<cfgId>.json` with per-rep + median timings.
+     * Returns 0 on success (validation passed), < 0 on error or accuracy fail.
+     */
+    public static native int nativeRunGemv(int cfgId, int m, int k, int qBlock,
+                                           int seed, int warmup, int iters,
+                                           String resultsDir);
 
     @Override
     public void onCreate() {

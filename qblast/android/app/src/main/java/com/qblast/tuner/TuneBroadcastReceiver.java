@@ -5,18 +5,23 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
+import java.io.File;
+
 // Receives `am broadcast -a com.qblast.TUNE` from the host tuner driver.
 //
 // Shape-string dispatch:
 //   "ping"              -> qblast_hello roundtrip (sanity check FastRPC plumbing)
 //   "<M>_<K>_<q_block>" -> gemv_w4a16 baseline; allocates rpcmem buffers,
-//                          generates seeded test data, runs on cDSP, validates
-//                          against an FP32 reference. Default seed=1234, override
-//                          via --ei seed N on the broadcast.
+//                          generates seeded test data, runs warmup + iters reps,
+//                          validates against an FP32 reference, writes
+//                          <externalFilesDir>/results/<cfg_id>.json.
 //
-// All metrics (dsp_cycles, arm_us, max_rel_err) are emitted by the JNI layer
-// via __android_log_print. The receiver only logs the call dispatch + return
-// code; the host tuner driver greps logcat for the qblast_jni lines.
+// Intent extras:
+//   cfg_id  int     identifier; also names the result JSON file
+//   shape   string  see above
+//   seed    int     PRNG seed for test data (default 1234)
+//   warmup  int     discarded reps before timing (default 5)
+//   iters   int     timed reps; median reported (default 50)
 public class TuneBroadcastReceiver extends BroadcastReceiver {
     private static final String TAG = "qblast_rx";
     private static final String DSP_LIBRARY_PATH = "/data/local/tmp";
@@ -26,9 +31,11 @@ public class TuneBroadcastReceiver extends BroadcastReceiver {
         int cfgId = intent.getIntExtra(TunerService.EXTRA_CFG_ID, -1);
         String shape = intent.getStringExtra(TunerService.EXTRA_SHAPE);
         int seed = intent.getIntExtra("seed", 1234);
-        Log.i(TAG, "broadcast: cfg_id=" + cfgId + " shape=" + shape + " seed=" + seed);
+        int warmup = intent.getIntExtra("warmup", 5);
+        int iters = intent.getIntExtra("iters", 50);
+        Log.i(TAG, "broadcast: cfg_id=" + cfgId + " shape=" + shape
+                + " seed=" + seed + " warmup=" + warmup + " iters=" + iters);
 
-        // Touching TunerService triggers its static initializer (loadLibrary).
         TunerService.nativeInit(DSP_LIBRARY_PATH);
 
         if ("ping".equals(shape)) {
@@ -46,7 +53,6 @@ public class TuneBroadcastReceiver extends BroadcastReceiver {
             return;
         }
 
-        // Otherwise expect "M_K_q" (decimal). Anything else logs a parse error.
         String[] parts = shape == null ? new String[0] : shape.split("_");
         if (parts.length != 3) {
             Log.e(TAG, "shape must be 'ping' or 'M_K_q', got: " + shape);
@@ -62,10 +68,19 @@ public class TuneBroadcastReceiver extends BroadcastReceiver {
             return;
         }
 
+        // App-specific external storage — no permission needed, adb-pullable
+        // from /sdcard/Android/data/com.qblast.tuner/files/results/.
+        File extDir = context.getExternalFilesDir(null);
+        if (extDir == null) {
+            Log.e(TAG, "getExternalFilesDir returned null");
+            return;
+        }
+        String resultsDir = new File(extDir, "results").getAbsolutePath();
+
         long t0 = System.nanoTime();
         int rc;
         try {
-            rc = TunerService.nativeRunGemv(M, K, q, seed);
+            rc = TunerService.nativeRunGemv(cfgId, M, K, q, seed, warmup, iters, resultsDir);
         } catch (Throwable t) {
             Log.e(TAG, "nativeRunGemv threw", t);
             rc = -200;
