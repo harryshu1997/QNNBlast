@@ -1,0 +1,16 @@
+# Gradle / Android build outputs
+android/.gradle/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/local.properties
+android/.idea/
+android/*.iml
+*.apk
+
+# Tuner result JSON pulled from the device
+scripts/database/json/*
+!scripts/database/json/.gitkeep
+
+# Note: Gradle wrapper (android/gradlew, android/gradle/wrapper/*) SHOULD be
+# committed once generated. It is intentionally not ignored here.

@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.QBlast" parent="Theme.MaterialComponents.DayNight.NoActionBar" />
+</resources>

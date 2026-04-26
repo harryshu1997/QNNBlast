@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">QBlast Tuner</string>
+    <string name="status_default">qblast tuner ready</string>
+    <string name="button_trigger">Trigger Tune</string>
+</resources>

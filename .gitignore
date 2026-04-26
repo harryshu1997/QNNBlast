@@ -39,3 +39,7 @@
 
 # debug information files
 *.dwo
+
+# Qualcomm Software Center installer (181MB, fetch fresh from qcom site if needed)
+qsc_installer.deb
+
