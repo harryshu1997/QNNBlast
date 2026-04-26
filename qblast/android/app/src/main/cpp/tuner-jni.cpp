@@ -122,10 +122,13 @@ struct Lcg {
     uint32_t next() { s = s * 1664525u + 1013904223u; return s; }
 };
 
+// Reference matmul: uses the *unquantized* x (FP32) so the reported relative
+// error includes both DSP-impl drift and x-quantization noise from the int8
+// path. Plan §130 tolerance is 1e-2; expected magnitude here is ~1e-4 to ~1e-3.
 double validate_gemv(uint32_t M, uint32_t K, uint32_t q_block,
                      const uint8_t* A_packed,
                      const int16_t* A_scales,
-                     const int16_t* x,
+                     const float* x_fp32_ref,
                      const int16_t* y) {
     const uint32_t blocks_per_row = K / q_block;
     double max_rel = 0.0;
@@ -140,8 +143,7 @@ double validate_gemv(uint32_t M, uint32_t K, uint32_t q_block,
                 uint32_t k = k0 + j;
                 uint8_t byte = row[k >> 1];
                 uint32_t q = (k & 1u) ? ((uint32_t)byte >> 4) : ((uint32_t)byte & 0xFu);
-                float xv = qblast_fp16_to_fp32(x[k]);
-                acc += (double)scale * (double)q * (double)xv;
+                acc += (double)scale * (double)q * (double)x_fp32_ref[k];
             }
         }
         double dsp_y = (double)qblast_fp16_to_fp32(y[m]);
@@ -262,22 +264,29 @@ Java_com_qblast_tuner_TunerService_nativeRunGemv(
 
     const size_t a_packed_bytes = (size_t)M * K / 2;
     const size_t a_scales_bytes = (size_t)M * (K / q_block) * sizeof(int16_t);
-    const size_t x_bytes = (size_t)K * sizeof(int16_t);
+    const size_t x_quant_bytes = (size_t)K;                           // int8
     const size_t y_bytes = (size_t)M * sizeof(int16_t);
 
+    // ION buffers (FastRPC zero-copies these).
     uint8_t* A_packed = (uint8_t*)rpcmem_alloc(RPCMEM_HEAP_ID_SYSTEM, RPCMEM_DEFAULT_FLAGS, a_packed_bytes);
     int16_t* A_scales = (int16_t*)rpcmem_alloc(RPCMEM_HEAP_ID_SYSTEM, RPCMEM_DEFAULT_FLAGS, a_scales_bytes);
-    int16_t* x_buf = (int16_t*)rpcmem_alloc(RPCMEM_HEAP_ID_SYSTEM, RPCMEM_DEFAULT_FLAGS, x_bytes);
-    int16_t* y_buf = (int16_t*)rpcmem_alloc(RPCMEM_HEAP_ID_SYSTEM, RPCMEM_DEFAULT_FLAGS, y_bytes);
-    if (!A_packed || !A_scales || !x_buf || !y_buf) {
+    uint8_t* x_quant  = (uint8_t*)rpcmem_alloc(RPCMEM_HEAP_ID_SYSTEM, RPCMEM_DEFAULT_FLAGS, x_quant_bytes);
+    int16_t* y_buf    = (int16_t*)rpcmem_alloc(RPCMEM_HEAP_ID_SYSTEM, RPCMEM_DEFAULT_FLAGS, y_bytes);
+
+    // Host-only FP32 mirror of x for the reference validator.
+    std::vector<float> x_fp32_ref(K, 0.0f);
+
+    if (!A_packed || !A_scales || !x_quant || !y_buf) {
         __android_log_print(ANDROID_LOG_ERROR, kTag, "rpcmem_alloc failed");
         if (A_packed) rpcmem_free(A_packed);
         if (A_scales) rpcmem_free(A_scales);
-        if (x_buf) rpcmem_free(x_buf);
+        if (x_quant) rpcmem_free(x_quant);
         if (y_buf) rpcmem_free(y_buf);
         return -5;
     }
 
+    // Test data. x is generated as FP32 and quantized into int8 Q.7
+    // (range [-1,1] → [-127,127]). x_scale = 1/127 reconstructs.
     Lcg rng(seed);
     for (size_t i = 0; i < a_packed_bytes; ++i) {
         A_packed[i] = (uint8_t)(rng.next() & 0xFFu);
@@ -287,35 +296,38 @@ Java_com_qblast_tuner_TunerService_nativeRunGemv(
         float val = 0.001f + 0.004f * (float)(rng.next() & 0xFFu) / 255.0f;
         A_scales[i] = qblast_fp32_to_fp16(val);
     }
+    const float x_scale = 1.0f / 127.0f;
     for (size_t i = 0; i < K; ++i) {
         float val = (float)((int32_t)(rng.next() & 0xFFFFu) - 32768) / 32768.0f;
-        x_buf[i] = qblast_fp32_to_fp16(val);
+        x_fp32_ref[i] = val;
+        int q = (int)lroundf(val * 127.0f);
+        if (q > 127) q = 127;
+        if (q < -128) q = -128;
+        x_quant[i] = (uint8_t)(int8_t)q;  // octet wire format, signed reinterpret on DSP
     }
     memset(y_buf, 0, y_bytes);
 
-    // Warmup: discard timings.
+    // Warmup.
     for (int i = 0; i < warmup; ++i) {
         uint64 dsp_cycles_unused = 0;
         int err = gemv_w4a16_compute(
                 g_gemv_w4a16_handle, M, K, q_block,
                 A_packed, (int)a_packed_bytes,
                 A_scales, (int)n_scales,
-                x_buf, (int)K,
+                x_quant, (int)x_quant_bytes,
+                x_scale,
                 y_buf, (int)M,
                 &dsp_cycles_unused);
         if (err) {
             __android_log_print(ANDROID_LOG_ERROR, kTag,
                     "warmup iter %d: gemv_w4a16_compute err %d", i, err);
-            rpcmem_free(A_packed); rpcmem_free(A_scales); rpcmem_free(x_buf); rpcmem_free(y_buf);
+            rpcmem_free(A_packed); rpcmem_free(A_scales); rpcmem_free(x_quant); rpcmem_free(y_buf);
             return -6;
         }
     }
 
-    // Validate output once after warmup so the validator sees the actual kernel
-    // result (and the warmup loop guarantees y_buf is freshly written).
-    double max_rel = validate_gemv(M, K, q_block, A_packed, A_scales, x_buf, y_buf);
+    double max_rel = validate_gemv(M, K, q_block, A_packed, A_scales, x_fp32_ref.data(), y_buf);
 
-    // Timed iters.
     std::vector<uint64_t> dsp_cycles_v;
     std::vector<int64_t>  compute_us_v;
     dsp_cycles_v.reserve(iters);
@@ -328,14 +340,15 @@ Java_com_qblast_tuner_TunerService_nativeRunGemv(
                 g_gemv_w4a16_handle, M, K, q_block,
                 A_packed, (int)a_packed_bytes,
                 A_scales, (int)n_scales,
-                x_buf, (int)K,
+                x_quant, (int)x_quant_bytes,
+                x_scale,
                 y_buf, (int)M,
                 &dsp_cycles);
         auto t1 = std::chrono::steady_clock::now();
         if (err) {
             __android_log_print(ANDROID_LOG_ERROR, kTag,
                     "iter %d: gemv_w4a16_compute err %d", i, err);
-            rpcmem_free(A_packed); rpcmem_free(A_scales); rpcmem_free(x_buf); rpcmem_free(y_buf);
+            rpcmem_free(A_packed); rpcmem_free(A_scales); rpcmem_free(x_quant); rpcmem_free(y_buf);
             return -7;
         }
         dsp_cycles_v.push_back((uint64_t)dsp_cycles);
@@ -343,7 +356,7 @@ Java_com_qblast_tuner_TunerService_nativeRunGemv(
                 std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count());
     }
 
-    rpcmem_free(A_packed); rpcmem_free(A_scales); rpcmem_free(x_buf); rpcmem_free(y_buf);
+    rpcmem_free(A_packed); rpcmem_free(A_scales); rpcmem_free(x_quant); rpcmem_free(y_buf);
 
     const bool ok = max_rel <= 1e-2;
     const char* status = ok ? "ok" : "rel_err_exceeds_tolerance";

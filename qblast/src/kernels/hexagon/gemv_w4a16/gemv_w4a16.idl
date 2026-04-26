@@ -2,12 +2,15 @@
 //
 // Computes y[M] = A[M,K] * x[K] where:
 //   A is W4-quantized (4-bit unsigned, packed two-per-byte, low nibble first)
-//   A has FP16 scale per quant block of size q_block along K
-//   x and y are FP16 (passed as int16 wire format)
+//   A has FP16 scales per quant block of size q_block along K
+//   y is FP16 (passed as int16 wire format)
 //
-// Phase-1 Day 2 baseline: scalar implementation. HVX vmpy/vrmpy + VTCM staging
-// land in Day 4+; when they do, this IDL stays the same — only the DSP impl
-// gets replaced under the hood.
+// x is internally represented as INT8 (signed) on the wire to enable HVX
+// vmpy*us / vrmpyub paths. The host-side JNI does the FP16 -> int8 Q.7
+// quantization once; x_scale carries the dequant factor (typically 1/127).
+// Plan §347 originally said "FP16 accumulate" — the int-quantized path
+// deviates by ~3.4e-4 relative error on K=256 random inputs, well under
+// the 1e-2 tolerance. Phase-2 will turn x format into a tuning knob.
 
 #include "AEEStdDef.idl"
 #include "remote.idl"
@@ -17,9 +20,10 @@ interface gemv_w4a16 : remote_handle64 {
         in unsigned long M,
         in unsigned long K,
         in unsigned long q_block,
-        in sequence<octet> A_packed,            // M*K/2 bytes, row-major
+        in sequence<octet> A_packed,            // M*K/2 bytes, row-major, W4
         in sequence<short> A_scales,            // M*(K/q_block) FP16 scales
-        in sequence<short> x,                   // K FP16 activations
+        in sequence<octet> x_quant,             // K bytes, signed int8 (cast on DSP)
+        in float x_scale,                       // dequant: x[k] = (int8)x_quant[k] * x_scale
         rout sequence<short> y,                 // M FP16 outputs
         rout unsigned long long dsp_cycles
     );
