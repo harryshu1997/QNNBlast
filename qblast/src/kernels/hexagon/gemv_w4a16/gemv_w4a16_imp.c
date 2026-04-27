@@ -87,12 +87,32 @@ static inline void hvx_4block_q64(const unsigned char* row_packed,
     // After add, lane i = sum_{k=8i..8i+7} W[k] * x[k].
     // Lanes 0..7 -> block 0, 8..15 -> block 1, 16..23 -> block 2, 24..31 -> block 3.
 
-    int b0 = 0, b1 = 0, b2 = 0, b3 = 0;
-    for (int i =  0; i <  8; ++i) b0 += Q6_R_vextract_VR(dot, i * 4);
-    for (int i =  8; i < 16; ++i) b1 += Q6_R_vextract_VR(dot, i * 4);
-    for (int i = 16; i < 24; ++i) b2 += Q6_R_vextract_VR(dot, i * 4);
-    for (int i = 24; i < 32; ++i) b3 += Q6_R_vextract_VR(dot, i * 4);
-    out[0] = b0; out[1] = b1; out[2] = b2; out[3] = b3;
+    // Vector-tree horizontal sum within each 8-lane block.
+    //
+    // valign(Vu, Vv, R) returns bytes (Vv ∥ Vu) starting at offset R, i.e.
+    // valign(zero, V, R) shifts V LEFT by R bytes (lane 0 of result = lane
+    // (R/4) of V; high lanes filled with zero). After "V + (V<<1 lane)":
+    //   lane i = V[i] + V[i+1]            for i < 31
+    //   lane 31 = V[31] + 0
+    // So the *pairs* {V[0],V[1]} land in lane 0, {V[2],V[3]} in lane 2, etc.
+    // — useful lanes are at EVEN positions, not odd.
+    //
+    // Three levels of (shift-left-by-2^k-lanes + add):
+    //   L1 useful at lanes 0, 2, 4, ...          (pair sums)
+    //   L2 useful at lanes 0, 4, 8, ...          (4-element sums)
+    //   L3 useful at lanes 0, 8, 16, 24          (8-element sums = block sums)
+    //
+    // No boundary crossing because the level-3 shift is 4 lanes (16 bytes),
+    // staying within each 8-lane block.
+    HVX_Vector zero  = Q6_V_vzero();
+    HVX_Vector L1    = Q6_Vw_vadd_VwVw(dot, Q6_V_valign_VVR(zero, dot,  4));
+    HVX_Vector L2    = Q6_Vw_vadd_VwVw(L1,  Q6_V_valign_VVR(zero, L1,   8));
+    HVX_Vector L3    = Q6_Vw_vadd_VwVw(L2,  Q6_V_valign_VVR(zero, L2,  16));
+
+    out[0] = Q6_R_vextract_VR(L3,  0);   // lane  0 -> block 0
+    out[1] = Q6_R_vextract_VR(L3, 32);   // lane  8 -> block 1
+    out[2] = Q6_R_vextract_VR(L3, 64);   // lane 16 -> block 2
+    out[3] = Q6_R_vextract_VR(L3, 96);   // lane 24 -> block 3
 }
 #endif  // QBLAST_HAVE_HVX
 
