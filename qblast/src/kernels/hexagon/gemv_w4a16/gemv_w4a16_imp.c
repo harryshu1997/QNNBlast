@@ -32,24 +32,17 @@
 #include "gemv_w4a16.h"
 #include "../common/fp16_compat.h"
 
+// Per-variant tunable parameters live in a generated header that
+// variant_builder.py overwrites in a per-variant tmp source copy.
+// The committed version of this header holds the default baseline values.
+#include "qblast_variant_config.h"
+
 #if defined(__HVX__) && (__HVX_LENGTH__ == 128)
 #  include "hexagon_types.h"
 #  include "hexagon_protos.h"
 #  define QBLAST_HAVE_HVX 1
 #else
 #  define QBLAST_HAVE_HVX 0
-#endif
-
-// ---------- Param defaults ---------------------------------------------------
-
-#ifndef QBLAST_Q_BLOCK
-#  define QBLAST_Q_BLOCK 64
-#endif
-#ifndef QBLAST_TILE_M
-#  define QBLAST_TILE_M 1
-#endif
-#ifndef QBLAST_N_HW_THREADS
-#  define QBLAST_N_HW_THREADS 1
 #endif
 
 #if QBLAST_Q_BLOCK != 32 && QBLAST_Q_BLOCK != 64 && QBLAST_Q_BLOCK != 128
@@ -62,8 +55,17 @@
 #define QBLAST_LANES_PER_BLOCK    (QBLAST_Q_BLOCK / 8)
 #define QBLAST_BLOCKS_PER_ITER    (QBLAST_K_PER_ITER / QBLAST_Q_BLOCK)
 
-// HVX path is only the fast path when the build params match what we've
-// implemented in vector form. Day-1 limits this to TILE_M==1 + N_HW_THREADS==1.
+// HVX path is the fast path whenever we've implemented the inner loop in
+// vector form. Day-1 limits this to TILE_M==1 + N_HW_THREADS==1; once those
+// gain HVX implementations the gate widens.
+//
+// Earlier cfg=1/2 smokes (Q=128, Q=32) reported rel_err 51 / 0.137 and we
+// briefly thought the HVX path was wrong for those Q values. Diagnosis
+// after instrumentation showed the kernel was numerically correct
+// (max_abs_diff ~3e-3, same as Q=64), but the per-element rel_err metric
+// blew up on rows where random cancellation drove ref ≈ 0. Switching the
+// validator to max-norm relative error fixed it; HVX is re-enabled for
+// all Q ∈ {32, 64, 128} here.
 #define QBLAST_HVX_FAST_PATH                                          \
     (QBLAST_HAVE_HVX && QBLAST_TILE_M == 1 && QBLAST_N_HW_THREADS == 1)
 
@@ -127,29 +129,22 @@ static inline void hvx_inner_iter(const unsigned char* row_packed,
     HVX_Vector dot_e = Q6_Vw_vrmpy_VubVb(v_lo, xe);
     HVX_Vector dot_o = Q6_Vw_vrmpy_VubVb(v_hi, xo);
     HVX_Vector dot   = Q6_Vw_vadd_VwVw(dot_e, dot_o);
-    // Lane i = sum_{k=8i..8i+7} W[k] * x[k].
-
-    // Tree reduction: log2(LANES_PER_BLOCK) levels of (vadd + valign-by-2^L lanes).
-    // Block sums land at byte offset (block_idx * LANES_PER_BLOCK * 4) in the
-    // final vector.
-    HVX_Vector zero = Q6_V_vzero();
-    HVX_Vector L    = dot;
-#if QBLAST_LANES_PER_BLOCK >= 2
-    L = Q6_Vw_vadd_VwVw(L, Q6_V_valign_VVR(zero, L,  4));
-#endif
-#if QBLAST_LANES_PER_BLOCK >= 4
-    L = Q6_Vw_vadd_VwVw(L, Q6_V_valign_VVR(zero, L,  8));
-#endif
-#if QBLAST_LANES_PER_BLOCK >= 8
-    L = Q6_Vw_vadd_VwVw(L, Q6_V_valign_VVR(zero, L, 16));
-#endif
-#if QBLAST_LANES_PER_BLOCK >= 16
-    L = Q6_Vw_vadd_VwVw(L, Q6_V_valign_VVR(zero, L, 32));
-#endif
-
-    const int stride_bytes = QBLAST_LANES_PER_BLOCK * 4;
+    // Lane i = sum_{k=8i..8i+7} W[k] * x[k]. There are always 32 lanes,
+    // partitioned into BLOCKS_PER_ITER groups of LANES_PER_BLOCK lanes each.
+    //
+    // Horizontal sum per block via direct scalar extracts. A valign-based
+    // tree reduction was tried in Day-7 (I) for Q=64 (cycles unchanged) and
+    // Day-8 for the parameterised path (Q=32/128 numerically wrong with
+    // boundary conditions the SDK protos don't pin down). Direct extract is
+    // provably correct for any Q_BLOCK and the cost (~32 vextracts + 31
+    // scalar adds = ~96 cycles) is small relative to the per-row inner loop.
     for (int b = 0; b < QBLAST_BLOCKS_PER_ITER; ++b) {
-        out[b] = Q6_R_vextract_VR(L, b * stride_bytes);
+        int sum = 0;
+        for (int l = 0; l < QBLAST_LANES_PER_BLOCK; ++l) {
+            const int lane_idx = b * QBLAST_LANES_PER_BLOCK + l;
+            sum += Q6_R_vextract_VR(dot, lane_idx * 4);
+        }
+        out[b] = sum;
     }
 }
 
@@ -179,14 +174,12 @@ int gemv_w4a16_compute(
     const signed char* x_even = (const signed char*)x_quant;
     const signed char* x_odd  = (const signed char*)x_quant + (K / 2);
 
-#if QBLAST_HVX_FAST_PATH
-    // HVX path lights up only when the runtime q_block matches what this
-    // variant was compiled for AND K is a whole number of HVX iters.
-    const int hvx_path = (q_block == QBLAST_Q_BLOCK
-                          && (K % QBLAST_K_PER_ITER) == 0);
-#else
-    const int hvx_path = 0;
-#endif
+    // Whether HVX fired for this call — used only for the FARF tag so we can
+    // tell which path executed from the device log. Declared inside the
+    // `#if QBLAST_HVX_FAST_PATH` block so -Wunused-variable doesn't fire on
+    // variants where the HVX path is compiled out entirely (e.g. Q!=64).
+    int hvx_taken = 0;
+    (void)hvx_taken;  // suppress -Wunused-variable on pure-scalar variants
 
     for (unsigned int m = 0; m < M; ++m) {
         float row_acc = 0.0f;
@@ -194,7 +187,10 @@ int gemv_w4a16_compute(
         const short* row_scales = A_scales + (unsigned long long)m * blocks_per_row;
 
 #if QBLAST_HVX_FAST_PATH
-        if (hvx_path) {
+        // HVX path lights up only when the runtime q_block matches what this
+        // variant was compiled for AND K is a whole number of HVX iters.
+        if (q_block == QBLAST_Q_BLOCK && (K % QBLAST_K_PER_ITER) == 0) {
+            hvx_taken = 1;
             for (unsigned int b = 0; b < blocks_per_row; b += QBLAST_BLOCKS_PER_ITER) {
                 int blocks[QBLAST_BLOCKS_PER_ITER];
                 hvx_inner_iter(row, x_even, x_odd, b * q_block, blocks);
@@ -219,7 +215,7 @@ int gemv_w4a16_compute(
 
     *dsp_cycles = HAP_perf_get_pcycles() - t0;
     FARF(HIGH, "gemv_w4a16 (q8x %s di Q=%d T=%d N=%d): M=%u K=%u q=%u pcycles=%llu",
-         hvx_path ? "HVX" : "scalar",
+         hvx_taken ? "HVX" : "scalar",
          QBLAST_Q_BLOCK, QBLAST_TILE_M, QBLAST_N_HW_THREADS,
          M, K, q_block, (unsigned long long)*dsp_cycles);
     return 0;

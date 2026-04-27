@@ -1,10 +1,27 @@
 NO_QURT_INC = 1
 
-BUILD_DLLS += libgemv_w4a16_skel
+# VARIANT lets variant_builder.py emit per-cfg .so names. Default produces
+# libgemv_w4a16_skel.so (matches Week-2 layout); variant builds emit
+# libgemv_w4a16_v{cfg_id}_skel.so by setting VARIANT=v42.
+#
+# Per-variant tunable parameters do NOT go through Makefile CFLAGS — that
+# path turned out to be brittle (the SDK's telematics wrapper swallows
+# stdout, and the per-component _C_FLAGS lookup didn't fire for our DLL).
+# Instead variant_builder.py copies the kernel source into a tmp dir per
+# cfg and overwrites qblast_variant_config.h there before invoking make.
+VARIANT ?= default
 
-libgemv_w4a16_skel_QAICIDLS += gemv_w4a16
-libgemv_w4a16_skel_C_SRCS += $(OBJ_DIR)/gemv_w4a16_skel
-libgemv_w4a16_skel.C_SRCS += gemv_w4a16_imp.c
+ifeq ($(VARIANT),default)
+DLL_NAME := libgemv_w4a16_skel
+else
+DLL_NAME := libgemv_w4a16_$(VARIANT)_skel
+endif
+
+BUILD_DLLS += $(DLL_NAME)
+
+$(DLL_NAME)_QAICIDLS += gemv_w4a16
+$(DLL_NAME)_C_SRCS += $(OBJ_DIR)/gemv_w4a16_skel
+$(DLL_NAME).C_SRCS += gemv_w4a16_imp.c
 
 BUILD_COPIES += \
    $(DLLS) \

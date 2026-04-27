@@ -12,5 +12,8 @@ android/*.iml
 scripts/database/json/*
 !scripts/database/json/.gitkeep
 
+# variant_builder.py output (per-variant skel .so + build logs)
+scripts/database/variants/
+
 # Note: Gradle wrapper (android/gradlew, android/gradle/wrapper/*) SHOULD be
 # committed once generated. It is intentionally not ignored here.

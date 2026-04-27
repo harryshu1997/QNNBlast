@@ -1,0 +1,5 @@
+[
+  {"cfg_id": 0,  "q_block":  64, "tile_m": 1, "n_hw_threads": 1},
+  {"cfg_id": 1,  "q_block": 128, "tile_m": 1, "n_hw_threads": 1},
+  {"cfg_id": 2,  "q_block":  32, "tile_m": 1, "n_hw_threads": 1}
+]
