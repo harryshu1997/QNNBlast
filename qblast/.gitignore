@@ -8,9 +8,11 @@ android/.idea/
 android/*.iml
 *.apk
 
-# Tuner result JSON pulled from the device
+# Tuner result JSON pulled from the device. Leaderboard.json is the
+# canonical Phase-1 baseline and IS committed; per-cfg JSONs are not.
 scripts/database/json/*
 !scripts/database/json/.gitkeep
+!scripts/database/json/leaderboard.json
 
 # variant_builder.py output (per-variant skel .so + build logs)
 scripts/database/variants/

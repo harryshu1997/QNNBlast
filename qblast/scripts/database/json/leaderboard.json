@@ -1,0 +1,382 @@
+{
+  "4096_4096_64": [
+    {
+      "cfg_id": 0,
+      "defines": {
+        "QBLAST_Q_BLOCK": 64,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 67167606,
+      "compute_us_med": 50192,
+      "rel_err": 0.002415244,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 1,
+      "defines": {
+        "QBLAST_Q_BLOCK": 128,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 173763908,
+      "compute_us_med": 104139,
+      "rel_err": 0.002415244,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 2,
+      "defines": {
+        "QBLAST_Q_BLOCK": 32,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 179481814,
+      "compute_us_med": 108978,
+      "rel_err": 0.002415244,
+      "status": "ok"
+    }
+  ],
+  "4096_4096_128": [
+    {
+      "cfg_id": 0,
+      "defines": {
+        "QBLAST_Q_BLOCK": 64,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 172241736,
+      "compute_us_med": 103975,
+      "rel_err": 0.001859086,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 1,
+      "defines": {
+        "QBLAST_Q_BLOCK": 128,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 59007146,
+      "compute_us_med": 50136,
+      "rel_err": 0.001859086,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 2,
+      "defines": {
+        "QBLAST_Q_BLOCK": 32,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 172329577,
+      "compute_us_med": 105447,
+      "rel_err": 0.001859086,
+      "status": "ok"
+    }
+  ],
+  "11008_4096_64": [
+    {
+      "cfg_id": 0,
+      "defines": {
+        "QBLAST_Q_BLOCK": 64,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 171747142,
+      "compute_us_med": 104309,
+      "rel_err": 0.002847935,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 1,
+      "defines": {
+        "QBLAST_Q_BLOCK": 128,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 516871498,
+      "compute_us_med": 249814,
+      "rel_err": 0.002847935,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 2,
+      "defines": {
+        "QBLAST_Q_BLOCK": 32,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 514841180,
+      "compute_us_med": 251953,
+      "rel_err": 0.002847935,
+      "status": "ok"
+    }
+  ],
+  "11008_4096_128": [
+    {
+      "cfg_id": 0,
+      "defines": {
+        "QBLAST_Q_BLOCK": 64,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 502480453,
+      "compute_us_med": 244605,
+      "rel_err": 0.001978256,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 1,
+      "defines": {
+        "QBLAST_Q_BLOCK": 128,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 161596634,
+      "compute_us_med": 96302,
+      "rel_err": 0.001978256,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 2,
+      "defines": {
+        "QBLAST_Q_BLOCK": 32,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 495134933,
+      "compute_us_med": 243342,
+      "rel_err": 0.001978256,
+      "status": "ok"
+    }
+  ],
+  "4096_11008_64": [
+    {
+      "cfg_id": 0,
+      "defines": {
+        "QBLAST_Q_BLOCK": 64,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 172453975,
+      "compute_us_med": 106294,
+      "rel_err": 0.002940684,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 1,
+      "defines": {
+        "QBLAST_Q_BLOCK": 128,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 553178775,
+      "compute_us_med": 263334,
+      "rel_err": 0.002940684,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 2,
+      "defines": {
+        "QBLAST_Q_BLOCK": 32,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 554094092,
+      "compute_us_med": 273125,
+      "rel_err": 0.002940684,
+      "status": "ok"
+    }
+  ],
+  "4096_11008_128": [
+    {
+      "cfg_id": 0,
+      "defines": {
+        "QBLAST_Q_BLOCK": 64,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 559942836,
+      "compute_us_med": 268926,
+      "rel_err": 0.002332915,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 1,
+      "defines": {
+        "QBLAST_Q_BLOCK": 128,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 116200028,
+      "compute_us_med": 68513,
+      "rel_err": 0.002332915,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 2,
+      "defines": {
+        "QBLAST_Q_BLOCK": 32,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 553399231,
+      "compute_us_med": 267919,
+      "rel_err": 0.002332915,
+      "status": "ok"
+    }
+  ],
+  "14336_4096_64": [
+    {
+      "cfg_id": 0,
+      "defines": {
+        "QBLAST_Q_BLOCK": 64,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 227028858,
+      "compute_us_med": 129943,
+      "rel_err": 0.002415244,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 1,
+      "defines": {
+        "QBLAST_Q_BLOCK": 128,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 660380889,
+      "compute_us_med": 325100,
+      "rel_err": 0.002415244,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 2,
+      "defines": {
+        "QBLAST_Q_BLOCK": 32,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 667958903,
+      "compute_us_med": 324733,
+      "rel_err": 0.002415244,
+      "status": "ok"
+    }
+  ],
+  "14336_4096_128": [
+    {
+      "cfg_id": 0,
+      "defines": {
+        "QBLAST_Q_BLOCK": 64,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 656294030,
+      "compute_us_med": 314604,
+      "rel_err": 0.001859086,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 1,
+      "defines": {
+        "QBLAST_Q_BLOCK": 128,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 209212089,
+      "compute_us_med": 120587,
+      "rel_err": 0.001859086,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 2,
+      "defines": {
+        "QBLAST_Q_BLOCK": 32,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 651822618,
+      "compute_us_med": 314352,
+      "rel_err": 0.001859086,
+      "status": "ok"
+    }
+  ],
+  "32000_4096_64": [
+    {
+      "cfg_id": 0,
+      "defines": {
+        "QBLAST_Q_BLOCK": 64,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 401994737,
+      "compute_us_med": 247795,
+      "rel_err": 0.001660587,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 1,
+      "defines": {
+        "QBLAST_Q_BLOCK": 128,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 1517497148,
+      "compute_us_med": 722301,
+      "rel_err": 0.001660587,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 2,
+      "defines": {
+        "QBLAST_Q_BLOCK": 32,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 1479083736,
+      "compute_us_med": 720308,
+      "rel_err": 0.001660587,
+      "status": "ok"
+    }
+  ],
+  "32000_4096_128": [
+    {
+      "cfg_id": 0,
+      "defines": {
+        "QBLAST_Q_BLOCK": 64,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 1452711834,
+      "compute_us_med": 700405,
+      "rel_err": 0.003118048,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 1,
+      "defines": {
+        "QBLAST_Q_BLOCK": 128,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 543423642,
+      "compute_us_med": 264051,
+      "rel_err": 0.003118048,
+      "status": "ok"
+    },
+    {
+      "cfg_id": 2,
+      "defines": {
+        "QBLAST_Q_BLOCK": 32,
+        "QBLAST_TILE_M": 1,
+        "QBLAST_N_HW_THREADS": 1
+      },
+      "cycles_med": 1469307994,
+      "compute_us_med": 699653,
+      "rel_err": 0.003118048,
+      "status": "ok"
+    }
+  ]
+}
