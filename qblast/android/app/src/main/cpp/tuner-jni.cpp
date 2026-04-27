@@ -264,7 +264,9 @@ void write_result_json(const char* dir, int cfg_id,
         return;
     }
     char path[600];
-    snprintf(path, sizeof(path), "%s/%d.json", dir, cfg_id);
+    // Filename includes shape so different (cfg, shape) pairs don't collide.
+    snprintf(path, sizeof(path), "%s/cfg%d_%u_%u_%u.json",
+             dir, cfg_id, M, K, q_block);
     FILE* f = fopen(path, "w");
     if (!f) {
         __android_log_print(ANDROID_LOG_ERROR, kTag,
