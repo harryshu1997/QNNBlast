@@ -36,6 +36,7 @@ include_directories(
     ${HEXAGON_SDK_ROOT}/ipc/fastrpc/rpcmem/inc/
     ${HEXAGON_SDK_ROOT}/utils/examples
     ${QBLAST_KERNELS_DIR}                               # so #include "common/fp16_compat.h" works
+    ${QBLAST_KERNELS_DIR}/../../database                # tuner-database lookup (auto-dispatch)
 )
 
 add_library(qblast_tuner_jni SHARED

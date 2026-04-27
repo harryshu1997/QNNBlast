@@ -32,6 +32,7 @@
 #include "qblast_hello.h"  // qaic-generated
 #include "gemv_w4a16.h"    // qaic-generated
 #include "common/fp16_compat.h"
+#include "database.hpp"    // CLBlast-style tuner database lookup
 
 namespace {
 constexpr const char* kTag = "qblast_jni";
@@ -77,8 +78,9 @@ int ensure_handle(remote_handle64* slot, const char* uri_base, OpenFn open_fn,
 }
 
 // Looks up (or creates) the cached FastRPC handle for a gemv_w4a16 variant.
-// cfg_id == 0 means the default/baseline skel; cfg_id > 0 picks the variant
-// that variant_builder.py produced as `libgemv_w4a16_v{cfg_id}_skel.so`.
+// cfg_id maps to the variant_builder.py output libgemv_w4a16_v{cfg_id}_skel.so.
+// Uses the v-suffixed name uniformly (cfg 0 included) so variant_builder is
+// the only authoritative source of skel .so files.
 int ensure_gemv_handle(int cfg_id, remote_handle64* out_handle) {
     auto it = g_gemv_handles.find(cfg_id);
     if (it != g_gemv_handles.end() && it->second != 0) {
@@ -87,18 +89,10 @@ int ensure_gemv_handle(int cfg_id, remote_handle64* out_handle) {
     }
 
     char uri[256];
-    if (cfg_id == 0) {
-        snprintf(uri, sizeof(uri), "%s%s", gemv_w4a16_URI, "&_dom=cdsp");
-    } else {
-        // qaic-generated gemv_w4a16_URI looks like
-        //   "file:///libgemv_w4a16_skel.so?gemv_w4a16_skel_handle_invoke&_modver=1.0"
-        // Substitute the SO filename for the variant; the rest stays identical
-        // (FastRPC routes by URI, not by symbol — same skel ABI).
-        snprintf(uri, sizeof(uri),
-                 "file:///libgemv_w4a16_v%d_skel.so"
-                 "?gemv_w4a16_skel_handle_invoke&_modver=1.0&_dom=cdsp",
-                 cfg_id);
-    }
+    snprintf(uri, sizeof(uri),
+             "file:///libgemv_w4a16_v%d_skel.so"
+             "?gemv_w4a16_skel_handle_invoke&_modver=1.0&_dom=cdsp",
+             cfg_id);
 
     remote_handle64 h = 0;
     int err = gemv_w4a16_open(uri, &h);
@@ -308,7 +302,7 @@ Java_com_qblast_tuner_TunerService_nativeRunGemv(
         jint jCfgId, jint jM, jint jK, jint jQBlock,
         jint jSeed, jint jWarmup, jint jIters,
         jstring jResultsDir) {
-    const int cfg_id = (int)jCfgId;
+    int cfg_id = (int)jCfgId;
     const uint32_t M = (uint32_t)jM;
     const uint32_t K = (uint32_t)jK;
     const uint32_t q_block = (uint32_t)jQBlock;
@@ -320,6 +314,20 @@ Java_com_qblast_tuner_TunerService_nativeRunGemv(
         __android_log_print(ANDROID_LOG_ERROR, kTag,
                 "nativeRunGemv: bad args M=%u K=%u q=%u", M, K, q_block);
         return -1;
+    }
+
+    // cfg_id < 0 means "auto-dispatch" — query the tuner database to pick
+    // the variant for this shape, falling back to default if the shape isn't
+    // in the leaderboard. This is the closing of the CLBlast-style loop:
+    // a caller passes only (M, K, q_block) and gets the tuned cfg.
+    if (cfg_id < 0) {
+        std::string shape_key = qblast::format_shape_key(M, K, q_block);
+        const qblast::DatabaseEntry* entry =
+                qblast::lookup_variant("gemv_w4a16", "sd8e_gen5", shape_key.c_str());
+        cfg_id = entry->cfg_id;
+        __android_log_print(ANDROID_LOG_INFO, kTag,
+                "auto-dispatch: shape=%s -> %s (cfg_id=%d Q=%u)",
+                shape_key.c_str(), entry->shape_key, cfg_id, entry->params.q_block);
     }
 
     const char* results_dir = env->GetStringUTFChars(jResultsDir, nullptr);
